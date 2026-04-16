@@ -1,61 +1,170 @@
 "use client";
 import { useState } from "react";
 
-type Shop ={
-    id:number;
-    tenant:string;
-    rent:number;
-}
+type ShopForm = {
+  shopNumber: string;
+  name: string;
+  email: string;
+  mobile: string;
+  address: string;
+  rent: string;
+  lightBill: string;
+  status: string;
+};
 
 export default function ShopManagement() {
-    const [shops, setShops] = useState<Shop[]>(
-        Array.from({length:20},(_,i)=>({
-            id:i+1,
-            tenant:"",
-            rent:0,
-        }))
-    );
+  const [showModal, setShowModal] = useState(false);
 
-    const handleChange =(
-        index:number,
-        field:"tenant"|"rent",
-        value:string
-    )=>{
-        const updated = [...shops];
-        if(field === "tenant"){
-            updated[index].tenant = value;
-        }else{
-            updated[index].rent = Number(value);
-        }
-        setShops(updated);
-    }
-    return (
-        <div className="p-6">
-            <h1 className="text-2xl font-bold mb-4">Shop Management</h1>
-            <div className="grid gap-4">
-                {shops.map((shop,index)=>(
-                    <div key={shop.id}
-                    className="border p-4 rounded-lg flex gap-4 items-center">
-                        <div className="w-20 font-semibold">Shop{shop.id}
-            </div>
-            <input 
-            type="text"            placeholder="Tenant Name"
-            value={shop.tenant}
-            onChange={(e)=>handleChange(index,"tenant",e.target.value)}
-            className="border p-2 rounded w-1/3"
-            />
-            <input
-            type="number"
-            placeholder="Rent Amount"
-            value={shop.rent}
-            onChange={(e)=>handleChange(index,"rent",e.target.value)}
-            className="border p-2 rounded w-1/3"
-            />
-        </div>
-                ))}
-            </div>
-        </div>
-    );
+  const [formData, setFormData] = useState<ShopForm>({
+    shopNumber: "",
+    name: "",
+    email: "",
+    mobile: "",
+    address: "",
+    rent: "",
+    lightBill: "",
+    status: "Pending",
+  });
 
+  const handleChange = (field: keyof ShopForm, value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const handleSubmit = () => {
+    console.log("Created Shop:", formData);
+    setShowModal(false);
+  };
+
+  const total =
+    Number(formData.rent || 0) + Number(formData.lightBill || 0);
+
+  return (
+    <div className="p-6">
+      {/* Header */}
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold">Shop Management</h1>
+
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+        >
+          + Create Shop
+        </button>
+      </div>
+
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center">
+          <div className="bg-white p-6 rounded-xl w-full max-w-lg">
+            <h2 className="text-xl font-semibold mb-4">
+              Create Shop / Lead
+            </h2>
+
+            <div className="grid gap-3">
+              <input
+                placeholder="Shop Number"
+                value={formData.shopNumber}
+                onChange={(e) =>
+                  handleChange("shopNumber", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
+
+              <input
+                placeholder="Renter / Lead Name"
+                value={formData.name}
+                onChange={(e) =>
+                  handleChange("name", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
+
+              <input
+                placeholder="Email"
+                value={formData.email}
+                onChange={(e) =>
+                  handleChange("email", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
+
+              <input
+                placeholder="Mobile Number"
+                value={formData.mobile}
+                onChange={(e) =>
+                  handleChange("mobile", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
+
+              <input
+                placeholder="Address"
+                value={formData.address}
+                onChange={(e) =>
+                  handleChange("address", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
+
+              <input
+                type="number"
+                placeholder="Rent Amount"
+                value={formData.rent}
+                onChange={(e) =>
+                  handleChange("rent", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
+
+              <input
+                type="number"
+                placeholder="Light Bill"
+                value={formData.lightBill}
+                onChange={(e) =>
+                  handleChange("lightBill", e.target.value)
+                }
+                className="border p-2 rounded"
+              />
+
+              <select
+                value={formData.status}
+                onChange={(e) =>
+                  handleChange("status", e.target.value)
+                }
+                className="border p-2 rounded"
+              >
+                <option>Pending</option>
+                <option>Paid</option>
+              </select>
+
+              {/* Total */}
+              <div className="font-semibold">
+                Total: ₹ {total}
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <div className="flex justify-end gap-2 mt-4">
+              <button
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 bg-gray-400 text-white rounded"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={handleSubmit}
+                className="px-4 py-2 bg-green-600 text-white rounded"
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
-
