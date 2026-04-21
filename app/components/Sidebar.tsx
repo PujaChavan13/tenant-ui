@@ -19,8 +19,13 @@ interface MenuItem {
   href: string;
 }
 
-export default function Sidebar() {
-  const [activeItem, setActiveItem] = useState("dashboard");
+interface SidebarProps {
+  activeItem?: string;
+  onNavigation?: (itemId: string) => void;
+}
+
+export default function Sidebar({ activeItem: initialActiveItem = "dashboard", onNavigation }: SidebarProps) {
+  const [activeItem, setActiveItem] = useState(initialActiveItem);
   const [collapsed, setCollapsed] = useState(false);
 
   const menuItems: MenuItem[] = [
@@ -30,6 +35,11 @@ export default function Sidebar() {
     { id: "payments", label: "Payments", icon: <CreditCard size={20} />, href: "#" },
     { id: "settings", label: "Settings", icon: <Settings size={20} />, href: "#" },
   ];
+
+  const handleNavigation = (itemId: string) => {
+    setActiveItem(itemId);
+    onNavigation?.(itemId);
+  };
 
   return (
     <div
@@ -65,7 +75,7 @@ export default function Sidebar() {
         {menuItems.map((item) => (
           <button
             key={item.id}
-            onClick={() => setActiveItem(item.id)}
+            onClick={() => handleNavigation(item.id)}
             className={cn(
               "group w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ease-in-out relative overflow-hidden justify-center md:justify-start",
               activeItem === item.id
