@@ -3,8 +3,8 @@
 import { useState, useEffect } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Tenant } from "@/lib/types/tenant";
-import { createTenant, updateTenant } from "@/app/services/tenantService";
 import { cn } from "@/lib/utils";
+import { useTenant } from "@/app/context/ApiContext";
 
 interface AddTenantModalProps {
   isOpen: boolean;
@@ -34,6 +34,7 @@ export function AddTenantModal({
   const [formData, setFormData] = useState<Tenant>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+  const { addTenant, updateTenantById } = useTenant();
 
   // Initialize or update form data when modal opens or editingTenant changes
   useEffect(() => {
@@ -97,25 +98,19 @@ export function AddTenantModal({
 
     setIsLoading(true);
     try {
-      let response;
+      let savedTenant: Tenant | null = null;
       if (editingTenant && (editingTenant.id || editingTenant._id)) {
-        // Update existing tenant
         const tenantId = editingTenant.id || editingTenant._id;
-        response = await updateTenant(tenantId || "", formData);
+        await updateTenantById(tenantId || "", formData);
+        savedTenant = { ...formData, id: tenantId || formData.id };
       } else {
-        // Create new tenant
-        response = await createTenant(formData);
+        savedTenant = await addTenant(formData);
       }
 
-      if (response.success && response.data) {
-        onSuccess(response.data as Tenant);
-        setFormData(initialFormData);
-        onClose();
-      } else {
-        setErrors({
-          submit: response.error || "Failed to save tenant",
-        });
-      }
+      if (!savedTenant) throw new Error("Failed to save tenant");
+      onSuccess(savedTenant);
+      setFormData(initialFormData);
+      onClose();
     } catch (error) {
       setErrors({
         submit:

@@ -17,7 +17,7 @@ export interface Tenant {
 
 export interface TenantResponse {
   success: boolean;
-  data?: Tenant | Tenant[];
+  data?: Tenant;
   error?: string;
   message?: string;
 }

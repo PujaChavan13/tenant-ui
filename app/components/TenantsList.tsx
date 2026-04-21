@@ -9,39 +9,26 @@ import {
   Loader,
 } from "lucide-react";
 import { Tenant } from "@/lib/types/tenant";
-import { getAllTenants, deleteTenant } from "@/app/services/tenantService";
 import { AddTenantModal } from "./AddTenantModal";
 import { Dialog } from "@/components/ui/Dialog";
+import { useTenant } from "@/app/context/ApiContext";
 
 export function TenantsList() {
-  const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    tenants,
+    loading: isLoading,
+    error,
+    fetchTenants,
+    deleteTenantById,
+  } = useTenant();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [viewingTenant, setViewingTenant] = useState<Tenant | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
-  const fetchTenants = async () => {
-    setIsLoading(true);
-    try {
-      const data = await getAllTenants();
-      const tenantList = Array.isArray(data) ? data : data.data || [];
-      setTenants(tenantList);
-      setError(null);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load tenants"
-      );
-      console.error("Error loading tenants:", err);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
     fetchTenants();
-  }, []);
+  }, [fetchTenants]);
 
   const handleAddTenant = async () => {
     // Avoid optimistic prepend + refetch, which can briefly duplicate rows.
@@ -65,15 +52,7 @@ export function TenantsList() {
 
   const handleDeleteTenant = async (id: string) => {
     if (!confirm("Are you sure you want to delete this tenant?")) return;
-
-    try {
-      await deleteTenant(id);
-      setTenants((prev) => prev.filter((t) => t.id !== id && t._id !== id));
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to delete tenant"
-      );
-    }
+    await deleteTenantById(id);
   };
 
   const formatDate = (date: string) => {

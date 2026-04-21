@@ -1,4 +1,9 @@
-import { Tenant, TenantResponse, PaginatedResponse } from "@/lib/types/tenant";
+import {
+  Tenant,
+  TenantResponse,
+  PaginatedResponse,
+
+} from "@/lib/types/tenant";
 
 // TODO: Update with your actual API base URL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
@@ -37,6 +42,8 @@ function normalizeTenant(tenant: ApiTenant): Tenant {
  */
 export async function getAllTenants(page: number = 1, limit: number = 10): Promise<PaginatedResponse | Tenant[]> {
   try {
+    console.log(`Fetching tenants from: ${TENANTS_ENDPOINT}?page=${page}&limit=${limit}`);
+    
     const response = await fetch(`${TENANTS_ENDPOINT}?page=${page}&limit=${limit}`, {
       method: "GET",
       headers: {
@@ -45,7 +52,7 @@ export async function getAllTenants(page: number = 1, limit: number = 10): Promi
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch tenants: ${response.statusText}`);
+      throw new Error(`Failed to fetch tenants: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
@@ -62,8 +69,11 @@ export async function getAllTenants(page: number = 1, limit: number = 10): Promi
 
     return data;
   } catch (error) {
-    console.error("Error fetching tenants:", error);
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error("Error fetching tenants:", errorMessage);
+    console.error("API Base URL:", API_BASE_URL);
+    console.error("Tenants Endpoint:", TENANTS_ENDPOINT);
+    throw new Error(`Failed to fetch tenants from ${TENANTS_ENDPOINT}: ${errorMessage}`);
   }
 }
 
@@ -86,10 +96,13 @@ export async function getTenantById(id: string): Promise<TenantResponse> {
     }
 
     const data = await response.json();
-    if (data?.data && !Array.isArray(data.data)) {
-      return { ...data, data: normalizeTenant(data.data) };
+    if (data?.data) {
+      const normalized = Array.isArray(data.data)
+        ? normalizeTenant(data.data[0] ?? {})
+        : normalizeTenant(data.data);
+      return { ...data, data: normalized };
     }
-    return data;
+    return { ...data, data: undefined };
   } catch (error) {
     console.error(`Error fetching tenant ${id}:`, error);
     throw error;
@@ -101,7 +114,9 @@ export async function getTenantById(id: string): Promise<TenantResponse> {
  * @param tenantData - Tenant object with required fields
  * @returns Promise with created tenant data
  */
-export async function createTenant(tenantData: Tenant): Promise<TenantResponse> {
+export async function createTenant(
+  tenantData: Tenant
+): Promise<TenantResponse> {
   try {
     // Transform frontend field names to backend field names
     const backendData = {
@@ -129,10 +144,13 @@ export async function createTenant(tenantData: Tenant): Promise<TenantResponse> 
     }
 
     const data = await response.json();
-    if (data?.data && !Array.isArray(data.data)) {
-      return { ...data, data: normalizeTenant(data.data) };
+    if (data?.data) {
+      const normalized = Array.isArray(data.data)
+        ? normalizeTenant(data.data[0] ?? {})
+        : normalizeTenant(data.data);
+      return { ...data, data: normalized };
     }
-    return data;
+    return { ...data, data: undefined };
   } catch (error) {
     console.error("Error creating tenant:", error);
     throw error;
@@ -145,7 +163,10 @@ export async function createTenant(tenantData: Tenant): Promise<TenantResponse> 
  * @param tenantData - Updated tenant data
  * @returns Promise with updated tenant data
  */
-export async function updateTenant(id: string, tenantData: Partial<Tenant>): Promise<TenantResponse> {
+export async function updateTenant(
+  id: string,
+  tenantData: Partial<Tenant>
+): Promise<TenantResponse> {
   try {
     // Transform frontend field names to backend field names
     const backendData: Record<string, unknown> = {};
@@ -173,10 +194,13 @@ export async function updateTenant(id: string, tenantData: Partial<Tenant>): Pro
     }
 
     const data = await response.json();
-    if (data?.data && !Array.isArray(data.data)) {
-      return { ...data, data: normalizeTenant(data.data) };
+    if (data?.data) {
+      const normalized = Array.isArray(data.data)
+        ? normalizeTenant(data.data[0] ?? {})
+        : normalizeTenant(data.data);
+      return { ...data, data: normalized };
     }
-    return data;
+    return { ...data, data: undefined };
   } catch (error) {
     console.error(`Error updating tenant ${id}:`, error);
     throw error;
