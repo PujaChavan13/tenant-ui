@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog } from "@/components/ui/Dialog";
 import { Tenant } from "@/lib/types/tenant";
-import { createTenant } from "@/app/services/tenantService";
+import { createTenant, updateTenant } from "@/app/services/tenantService";
 import { cn } from "@/lib/utils";
 
 interface AddTenantModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: (tenant: Tenant) => void;
+  editingTenant?: Tenant | null;
 }
 
 const initialFormData: Tenant = {
@@ -28,10 +29,23 @@ export function AddTenantModal({
   isOpen,
   onClose,
   onSuccess,
+  editingTenant,
 }: AddTenantModalProps) {
   const [formData, setFormData] = useState<Tenant>(initialFormData);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
+
+  // Initialize or update form data when modal opens or editingTenant changes
+  useEffect(() => {
+    if (isOpen) {
+      if (editingTenant) {
+        setFormData(editingTenant);
+      } else {
+        setFormData(initialFormData);
+      }
+      setErrors({});
+    }
+  }, [isOpen, editingTenant]);
 
   const validateForm = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -83,20 +97,29 @@ export function AddTenantModal({
 
     setIsLoading(true);
     try {
-      const response = await createTenant(formData);
+      let response;
+      if (editingTenant && (editingTenant.id || editingTenant._id)) {
+        // Update existing tenant
+        const tenantId = editingTenant.id || editingTenant._id;
+        response = await updateTenant(tenantId || "", formData);
+      } else {
+        // Create new tenant
+        response = await createTenant(formData);
+      }
+
       if (response.success && response.data) {
         onSuccess(response.data as Tenant);
         setFormData(initialFormData);
         onClose();
       } else {
         setErrors({
-          submit: response.error || "Failed to create tenant",
+          submit: response.error || "Failed to save tenant",
         });
       }
     } catch (error) {
       setErrors({
         submit:
-          error instanceof Error ? error.message : "Failed to create tenant",
+          error instanceof Error ? error.message : "Failed to save tenant",
       });
     } finally {
       setIsLoading(false);
@@ -104,7 +127,12 @@ export function AddTenantModal({
   };
 
   return (
-    <Dialog isOpen={isOpen} title="Add Tenant" onClose={onClose} maxWidth="max-w-2xl">
+    <Dialog 
+      isOpen={isOpen} 
+      title={editingTenant ? "Edit Tenant" : "Add Tenant"} 
+      onClose={onClose} 
+      maxWidth="max-w-2xl"
+    >
       <form onSubmit={handleSubmit} className="space-y-6">
         {errors.submit && (
           <div className="rounded-lg bg-red-50 p-4 text-sm text-red-600 border border-red-200">
@@ -306,7 +334,7 @@ export function AddTenantModal({
             disabled={isLoading}
             className="px-6 py-2 rounded-lg bg-blue-600 font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? "Saving..." : "Save"}
+            {isLoading ? (editingTenant ? "Updating..." : "Saving...") : (editingTenant ? "Update" : "Save")}
           </button>
         </div>
       </form>
