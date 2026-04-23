@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { TenantsList } from "./TenantsList";
+import { ReminderPage } from "./ReminderPage";
 import { cn } from "@/lib/utils";
 
 interface LayoutProps {
@@ -85,6 +86,8 @@ export default function Layout({ children }: LayoutProps) {
             <TenantsList />
           </div>
         );
+      case "reminders":
+        return <ReminderPage />;
       case "payments":
         return <PaymentsPage />;
       case "settings":

@@ -2,6 +2,7 @@ import { Geist } from "next/font/google";
 import { cn } from "@/lib/utils";
 import "./globals.css";
 import { TenantProvider } from "./context/ApiContext";
+import { ReminderProvider } from "./context/ReminderContext";
 
 const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
@@ -20,7 +21,9 @@ export default function RootLayout({
     <html lang="en" className={cn("font-sans", geist.variable)}>
       <body className="bg-gray-50 text-gray-900">
         <TenantProvider>
-          {children}
+          <ReminderProvider>
+            {children}
+          </ReminderProvider>
         </TenantProvider>
       </body>
     </html>

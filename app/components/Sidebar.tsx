@@ -7,6 +7,7 @@ import {
   Users,
   CreditCard,
   Settings,
+  Bell,
   ChevronRight,
   LogOut,
 } from "lucide-react";
@@ -32,6 +33,7 @@ export default function Sidebar({ activeItem: initialActiveItem = "dashboard", o
     { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, href: "#" },
     { id: "shops", label: "Shops", icon: <ShoppingCart size={20} />, href: "#" },
     { id: "tenants", label: "Tenants", icon: <Users size={20} />, href: "#" },
+    { id: "reminders", label: "Reminders", icon: <Bell size={20} />, href: "#" },
     { id: "payments", label: "Payments", icon: <CreditCard size={20} />, href: "#" },
     { id: "settings", label: "Settings", icon: <Settings size={20} />, href: "#" },
   ];

@@ -297,23 +297,6 @@ export function AddTenantModal({
           </div>
         </div>
 
-        {/* Reminder Type */}
-        {/* <div>
-          <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1.5 sm:mb-2">
-            Reminder Type
-          </label> */}
-          {/* <select
-            name="reminderType"
-            value={formData.reminderType}
-            onChange={handleChange}
-            className="w-full px-3 sm:px-4 py-2 sm:py-2.5 text-sm sm:text-base rounded-lg border border-gray-300 bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="email">Email</option>
-            <option value="sms">SMS</option>
-            <option value="both">Both</option>
-          </select> */}
-        {/* </div> */}
-
         {/* Action Buttons - Responsive layout */}
         <div className="flex flex-col-reverse sm:flex-row justify-end gap-2 sm:gap-3 pt-4 sm:pt-5 md:pt-6 border-t border-gray-200">
           <button

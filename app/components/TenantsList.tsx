@@ -1,34 +1,112 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  FileText,
-  Edit,
-  Trash2,
-  Plus,
-  Loader,
-} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { FileText,Edit,Trash2,Plus,Loader,BellRing,} from "lucide-react";
 import { Tenant } from "@/lib/types/tenant";
 import { AddTenantModal } from "./AddTenantModal";
 import { Dialog } from "@/components/ui/Dialog";
 import { useTenant } from "@/app/context/ApiContext";
+import { useReminder } from "@/app/context/ReminderContext";
+import { ReminderModal } from "./ReminderModal";
+import { Reminder } from "@/lib/types/reminder";
 
 export function TenantsList() {
-  const {
-    tenants,
-    loading: isLoading,
-    error,
-    fetchTenants,
-    deleteTenantById,
-  } = useTenant();
+  const {  tenants,loading: isLoading,error,fetchTenants,deleteTenantById,} = useTenant();
+  const { reminders, fetchReminders } = useReminder();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [viewingTenant, setViewingTenant] = useState<Tenant | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [reminderTenant, setReminderTenant] = useState<Tenant | null>(null);
+  const [isReminderOpen, setIsReminderOpen] = useState(false);
+  const [remindersByTenant, setRemindersByTenant] = useState<Record<string, Reminder[]>>({});
+  const [remindersBlockedUntil, setRemindersBlockedUntil] = useState<Record<string, string | null>>(
+    () => {
+      // Load from localStorage on mount
+      try {
+        const stored = localStorage.getItem("remindersBlockedUntil");
+        return stored ? JSON.parse(stored) : {};
+      } catch {
+        return {};
+      }
+    }
+  );
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTenants();
   }, [fetchTenants]);
+
+  useEffect(() => {
+    fetchReminders();
+  }, [fetchReminders]);
+
+  useEffect(() => {
+    if (!reminders.length) return;
+    
+    const grouped: Record<string, Reminder[]> = {};
+    const blocked: Record<string, string | null> = {};
+    
+    reminders.forEach((reminder) => {
+      if (!grouped[reminder.tenantId]) grouped[reminder.tenantId] = [];
+      grouped[reminder.tenantId].push(reminder);
+      
+      // If reminder was sent within last 24 hours, block it
+      if (reminder.sentAt) {
+        const sentTime = new Date(reminder.sentAt).getTime();
+        const now = new Date().getTime();
+        const hoursPassed = (now - sentTime) / (60 * 60 * 1000);
+        
+        if (hoursPassed < 24) {
+          const blockedUntil = new Date(sentTime + 24 * 60 * 60 * 1000).toISOString();
+          blocked[reminder.tenantId] = blockedUntil;
+        }
+      }
+    });
+    
+    setRemindersByTenant(grouped);
+    setRemindersBlockedUntil(blocked);
+    localStorage.setItem("remindersBlockedUntil", JSON.stringify(blocked));
+  }, [reminders]);
+
+  const refreshReminders = useCallback(async () => {
+    await fetchReminders();
+  }, [fetchReminders]);
+
+  const canSendReminder = (tenantId: string): boolean => {
+    const blockedUntil = remindersBlockedUntil[tenantId];
+    if (!blockedUntil) return true;
+    return new Date() > new Date(blockedUntil);
+  };
+
+  const blockReminderForTenant = (tenantId: string) => {
+    const now = new Date();
+    const blockedUntilTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
+    const blockedUntilStr = blockedUntilTime.toISOString();
+    
+    const newBlocked = {
+      ...remindersBlockedUntil,
+      [tenantId]: blockedUntilStr,
+    };
+    setRemindersBlockedUntil(newBlocked);
+    localStorage.setItem("remindersBlockedUntil", JSON.stringify(newBlocked));
+  };
+
+  const getTimeUntilNextReminder = (tenantId: string): string => {
+    const blockedUntil = remindersBlockedUntil[tenantId];
+    if (!blockedUntil) return "";
+    
+    const now = new Date();
+    const blockEnd = new Date(blockedUntil);
+    const diffMs = blockEnd.getTime() - now.getTime();
+    
+    if (diffMs <= 0) return "";
+    
+    const hours = Math.floor(diffMs / (60 * 60 * 1000));
+    const minutes = Math.floor((diffMs % (60 * 60 * 1000)) / (60 * 1000));
+    
+    return `${hours}h ${minutes}m`;
+  };
 
   const handleAddTenant = async () => {
     // Avoid optimistic prepend + refetch, which can briefly duplicate rows.
@@ -53,6 +131,20 @@ export function TenantsList() {
   const handleDeleteTenant = async (id: string) => {
     if (!confirm("Are you sure you want to delete this tenant?")) return;
     await deleteTenantById(id);
+  };
+
+  const handleOpenReminder = (tenant: Tenant) => {
+    const tenantId = tenant.id || tenant._id || "";
+    if (!canSendReminder(tenantId)) {
+      const timeRemaining = getTimeUntilNextReminder(tenantId);
+      setToastMessage(
+        `Reminder already sent. You can send the next reminder after ${timeRemaining}.`
+      );
+      setTimeout(() => setToastMessage(null), 5000);
+      return;
+    }
+    setReminderTenant(tenant);
+    setIsReminderOpen(true);
   };
 
   const formatDate = (date: string) => {
@@ -88,6 +180,14 @@ export function TenantsList() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Toast Message */}
+      {toastMessage && (
+        <div className="rounded-lg bg-amber-50 p-3 sm:p-4 text-xs sm:text-sm text-amber-800 border border-amber-200 flex items-start gap-2">
+          <span className="flex-shrink-0 mt-0.5">⏱️</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
       {/* Header - Responsive layout */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -135,6 +235,9 @@ export function TenantsList() {
               <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700">
                 Lease Dates
               </th>
+              <th className="px-4 sm:px-6 py-3 text-left text-xs sm:text-sm font-semibold text-gray-700">
+                Last Reminder Sent
+              </th>
               <th className="px-4 sm:px-6 py-3 text-center text-xs sm:text-sm font-semibold text-gray-700">
                 Actions
               </th>
@@ -143,7 +246,7 @@ export function TenantsList() {
           <tbody>
             {tenants.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 sm:px-6 py-12">
+                <td colSpan={7} className="px-4 sm:px-6 py-12">
                   <div className="text-center">
                     <FileText
                       size={40}
@@ -164,55 +267,91 @@ export function TenantsList() {
               </tr>
             ) : (
               tenants.map((tenant) => (
-                <tr
-                  key={tenant.id || tenant._id || `${tenant.name}-${tenant.shopNumber}-${tenant.createdAt}`}
-                  className="border-b border-gray-200 transition-colors hover:bg-gray-50"
-                >
-                  <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium text-gray-900">
+                (() => {
+                  const tenantId = tenant.id || tenant._id || "";
+                  const tenantReminders = remindersByTenant[tenantId] || [];
+                  const latestReminder = [...tenantReminders].sort((a, b) => {
+                    const aDate = new Date(a.sentAt || a.createdAt || 0).getTime();
+                    const bDate = new Date(b.sentAt || b.createdAt || 0).getTime();
+                    return bDate - aDate;
+                  })[0];
+                  const hasPendingRent = tenantReminders.some(
+                    (item: Reminder) => item.status === "pending" || item.status === "failed"
+                  );
+
+                  return (
+                    <tr
+                      key={tenant.id || tenant._id || `${tenant.name}-${tenant.shopNumber}-${tenant.createdAt}`}
+                      className={`border-b border-gray-200 transition-colors hover:bg-gray-50 ${hasPendingRent ? "bg-amber-50/60" : ""}`}
+                    >
+                      <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium text-gray-900">
                     {tenant.name}
-                  </td>
-                  <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600">
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600">
                     {tenant.shopNumber || tenant.shopNo || "-"}
-                  </td>
-                  <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600">
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600">
                     {tenant.contactNumber || "-"}
-                  </td>
-                  <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium text-gray-900">
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm font-medium text-gray-900">
                     {formatCurrency(Number(tenant.monthlyRent ?? tenant.rent ?? 0))}
-                  </td>
-                  <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600">
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600">
                     {formatDate(tenant.leaseStartDate || "")} -{" "}
                     {formatDate(tenant.leaseEndDate || "")}
-                  </td>
-                  <td className="px-4 sm:px-6 py-4">
-                    <div className="flex items-center justify-center gap-1 sm:gap-2">
-                      <button
-                        onClick={() => handleEditTenant(tenant)}
-                        className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
-                        title="Edit"
-                      >
-                        <Edit size={16} className="sm:w-4.5 sm:h-4.5" />
-                      </button>
-                      <button
-                        onClick={() =>
-                          (tenant.id || tenant._id) &&
-                          handleDeleteTenant(tenant.id || tenant._id || "")
-                        }
-                        className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
-                        title="Delete"
-                      >
-                        <Trash2 size={16} className="sm:w-4.5 sm:h-4.5" />
-                      </button>
-                      <button
-                        onClick={() => handleViewDetails(tenant)}
-                        className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
-                        title="View Details"
-                      >
-                        <FileText size={16} className="sm:w-4.5 sm:h-4.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 text-xs sm:text-sm text-gray-600">
+                        {latestReminder?.sentAt
+                          ? new Date(latestReminder.sentAt).toLocaleString("en-IN")
+                          : "-"}
+                      </td>
+                      <td className="px-4 sm:px-6 py-4">
+                        <div className="flex items-center justify-center gap-1 sm:gap-2">
+                          <button
+                            onClick={() => handleOpenReminder(tenant)}
+                            disabled={!canSendReminder(tenantId)}
+                            className={`rounded-lg p-2 transition-colors ${
+                              canSendReminder(tenantId)
+                                ? "text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 cursor-pointer"
+                                : "text-gray-300 cursor-not-allowed opacity-50"
+                            }`}
+                            title={
+                              canSendReminder(tenantId)
+                                ? "Send Reminder"
+                                : `Reminder blocked for ${getTimeUntilNextReminder(tenantId)}`
+                            }
+                          >
+                            <BellRing size={16} className="sm:w-4.5 sm:h-4.5" />
+                          </button>
+                          <button
+                            onClick={() => handleEditTenant(tenant)}
+                            className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                            title="Edit"
+                          >
+                            <Edit size={16} className="sm:w-4.5 sm:h-4.5" />
+                          </button>
+                          <button
+                            onClick={() =>
+                              (tenant.id || tenant._id) &&
+                              handleDeleteTenant(tenant.id || tenant._id || "")
+                            }
+                            className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-red-50 hover:text-red-600"
+                            title="Delete"
+                          >
+                            <Trash2 size={16} className="sm:w-4.5 sm:h-4.5" />
+                          </button>
+                          <button
+                            onClick={() => handleViewDetails(tenant)}
+                            className="rounded-lg p-2 text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900"
+                            title="View Details"
+                          >
+                            <FileText size={16} className="sm:w-4.5 sm:h-4.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })()
               ))
             )}
           </tbody>
@@ -236,10 +375,22 @@ export function TenantsList() {
             </button>
           </div>
         ) : (
-          tenants.map((tenant) => (
-            <div
+          tenants.map((tenant) => {
+            const tenantId = tenant.id || tenant._id || "";
+            const tenantReminders = remindersByTenant[tenantId] || [];
+            const latestReminder = [...tenantReminders].sort((a, b) => {
+              const aDate = new Date(a.sentAt || a.createdAt || 0).getTime();
+              const bDate = new Date(b.sentAt || b.createdAt || 0).getTime();
+              return bDate - aDate;
+            })[0];
+            const hasPendingRent = tenantReminders.some(
+              (item: Reminder) => item.status === "pending" || item.status === "failed"
+            );
+
+            return (
+              <div
               key={tenant.id || tenant._id || `${tenant.name}-${tenant.shopNumber}-${tenant.createdAt}`}
-              className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow"
+              className={`rounded-lg border border-gray-200 bg-white p-4 shadow-sm hover:shadow-md transition-shadow ${hasPendingRent ? "ring-1 ring-amber-200 bg-amber-50/50" : ""}`}
             >
               {/* Tenant name and shop */}
               <div className="flex items-start justify-between gap-2 mb-3">
@@ -252,6 +403,22 @@ export function TenantsList() {
                   </p>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
+                  <button
+                    onClick={() => handleOpenReminder(tenant)}
+                    disabled={!canSendReminder(tenantId)}
+                    className={`rounded p-1.5 transition-colors ${
+                      canSendReminder(tenantId)
+                        ? "text-gray-600 hover:bg-emerald-50 hover:text-emerald-600 cursor-pointer"
+                        : "text-gray-300 cursor-not-allowed opacity-50"
+                    }`}
+                    title={
+                      canSendReminder(tenantId)
+                        ? "Send Reminder"
+                        : `Reminder blocked for ${getTimeUntilNextReminder(tenantId)}`
+                    }
+                  >
+                    <BellRing size={16} />
+                  </button>
                   <button
                     onClick={() => handleEditTenant(tenant)}
                     className="rounded p-1.5 text-gray-600 transition-colors hover:bg-blue-50 hover:text-blue-600"
@@ -300,9 +467,18 @@ export function TenantsList() {
                     {formatDate(tenant.leaseEndDate || "")}
                   </p>
                 </div>
+                <div className="col-span-2">
+                  <p className="text-xs font-medium text-gray-600">Last Reminder Sent</p>
+                  <p className="text-xs text-gray-900">
+                    {latestReminder?.sentAt
+                      ? new Date(latestReminder.sentAt).toLocaleString("en-IN")
+                      : "-"}
+                  </p>
+                </div>
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -312,6 +488,22 @@ export function TenantsList() {
         onClose={closeModal}
         onSuccess={handleAddTenant}
         editingTenant={editingTenant}
+      />
+
+      <ReminderModal
+        isOpen={isReminderOpen}
+        tenant={reminderTenant}
+        onClose={() => {
+          setIsReminderOpen(false);
+          setReminderTenant(null);
+        }}
+        onSuccess={async () => {
+          if (reminderTenant) {
+            const tenantId = reminderTenant.id || reminderTenant._id || "";
+            blockReminderForTenant(tenantId);
+          }
+          await refreshReminders();
+        }}
       />
 
       {/* Details Modal */}
@@ -342,12 +534,6 @@ export function TenantsList() {
                   {viewingTenant.shopNumber || viewingTenant.shopNo || "-"}
                 </p>
               </div>
-              {/* <div>
-                <p className="text-xs sm:text-sm font-medium text-gray-600">Reminder Type</p>
-                <p className="mt-1 text-base sm:text-lg font-semibold text-gray-900 capitalize">
-                  {viewingTenant.reminderType}
-                </p>
-              </div> */}
               <div>
                 <p className="text-xs sm:text-sm font-medium text-gray-600">Monthly Rent</p>
                 <p className="mt-1 text-base sm:text-lg font-semibold text-gray-900">
