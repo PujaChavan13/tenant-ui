@@ -28,3 +28,14 @@ export interface ReminderResponse {
   message?: string;
   error?: string;
 }
+
+export interface TenantReminderStatus {
+  tenantId: string;
+  tenantName: string;
+  contactNumber: string;
+  monthlyRent: number;
+  pendingMonths: number;
+  pendingAmount: number;
+  status: "sent" | "pending";
+  lastReminderSentAt?: string | null;
+}

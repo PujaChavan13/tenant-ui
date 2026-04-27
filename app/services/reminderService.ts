@@ -1,7 +1,13 @@
-import { Reminder, ReminderFilters, ReminderResponse } from "@/lib/types/reminder";
+import {
+  Reminder,
+  ReminderFilters,
+  ReminderResponse,
+  TenantReminderStatus,
+} from "@/lib/types/reminder";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 const REMINDERS_ENDPOINT = `${API_BASE_URL}/reminders`;
+const TENANT_REMINDER_STATUS_ENDPOINT = `${API_BASE_URL}/reminders/status/current`;
 
 type ApiReminder = Partial<Reminder> & {
   _id?: string;
@@ -91,4 +97,78 @@ export async function getRemindersByTenant(tenantId: string): Promise<Reminder[]
 
   const reminders = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
   return reminders.map(normalizeReminder);
+}
+
+type ApiTenantReminderStatus = Partial<TenantReminderStatus> & {
+  id?: string;
+  _id?: string;
+  tenant?: {
+    id?: string;
+    _id?: string;
+    name?: string;
+    contactNumber?: string;
+    monthlyRent?: number;
+  };
+};
+
+function normalizeTenantReminderStatus(row: ApiTenantReminderStatus): TenantReminderStatus {
+  const tenantId = row.tenantId ?? row.tenant?.id ?? row.tenant?._id ?? row.id ?? row._id ?? "";
+  const tenantName = row.tenantName ?? row.tenant?.name ?? "";
+  const contactNumber = row.contactNumber ?? row.tenant?.contactNumber ?? "";
+  const monthlyRent = Number(row.monthlyRent ?? row.tenant?.monthlyRent ?? 0);
+  const pendingMonths = Number(row.pendingMonths ?? 0);
+  const pendingAmount = Number(
+    row.pendingAmount ?? (pendingMonths > 0 ? monthlyRent * pendingMonths : 0)
+  );
+
+  return {
+    tenantId,
+    tenantName,
+    contactNumber,
+    monthlyRent,
+    pendingMonths,
+    pendingAmount,
+    status: row.status === "sent" ? "sent" : "pending",
+    lastReminderSentAt: row.lastReminderSentAt ?? null,
+  };
+}
+
+export async function getTenantReminderStatus(): Promise<TenantReminderStatus[]> {
+  const response = await fetch(TENANT_REMINDER_STATUS_ENDPOINT, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error || data?.message || "Failed to fetch reminder status");
+  }
+
+  const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+  return rows.map(normalizeTenantReminderStatus);
+}
+
+export async function sendReminder(payload: {
+  tenantId: string;
+  tenantName?: string;
+  contact?: string;
+  amount?: number;
+  months?: number;
+  message?: string;
+}): Promise<ReminderResponse> {
+  const response = await fetch(REMINDERS_ENDPOINT, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data?.error || data?.message || "Failed to send reminder");
+  }
+
+  return {
+    ...data,
+    data: data?.data ? normalizeReminder(data.data) : undefined,
+  };
 }

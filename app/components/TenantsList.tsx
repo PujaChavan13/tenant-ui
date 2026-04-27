@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { FileText,Edit,Trash2,Plus,Loader,BellRing,} from "lucide-react";
 import { Tenant } from "@/lib/types/tenant";
 import { AddTenantModal } from "./AddTenantModal";
@@ -19,18 +19,6 @@ export function TenantsList() {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [reminderTenant, setReminderTenant] = useState<Tenant | null>(null);
   const [isReminderOpen, setIsReminderOpen] = useState(false);
-  const [remindersByTenant, setRemindersByTenant] = useState<Record<string, Reminder[]>>({});
-  const [remindersBlockedUntil, setRemindersBlockedUntil] = useState<Record<string, string | null>>(
-    () => {
-      // Load from localStorage on mount
-      try {
-        const stored = localStorage.getItem("remindersBlockedUntil");
-        return stored ? JSON.parse(stored) : {};
-      } catch {
-        return {};
-      }
-    }
-  );
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,32 +29,25 @@ export function TenantsList() {
     fetchReminders();
   }, [fetchReminders]);
 
-  useEffect(() => {
-    if (!reminders.length) return;
-    
+  const remindersByTenant = useMemo<Record<string, Reminder[]>>(() => {
     const grouped: Record<string, Reminder[]> = {};
-    const blocked: Record<string, string | null> = {};
-    
     reminders.forEach((reminder) => {
       if (!grouped[reminder.tenantId]) grouped[reminder.tenantId] = [];
       grouped[reminder.tenantId].push(reminder);
-      
-      // If reminder was sent within last 24 hours, block it
-      if (reminder.sentAt) {
-        const sentTime = new Date(reminder.sentAt).getTime();
-        const now = new Date().getTime();
-        const hoursPassed = (now - sentTime) / (60 * 60 * 1000);
-        
-        if (hoursPassed < 24) {
-          const blockedUntil = new Date(sentTime + 24 * 60 * 60 * 1000).toISOString();
-          blocked[reminder.tenantId] = blockedUntil;
-        }
-      }
     });
-    
-    setRemindersByTenant(grouped);
-    setRemindersBlockedUntil(blocked);
-    localStorage.setItem("remindersBlockedUntil", JSON.stringify(blocked));
+    return grouped;
+  }, [reminders]);
+
+  const remindersBlockedUntil = useMemo<Record<string, string | null>>(() => {
+    const blocked: Record<string, string | null> = {};
+    reminders.forEach((reminder) => {
+      if (!reminder.sentAt) return;
+      const sentTime = new Date(reminder.sentAt).getTime();
+      if (Number.isNaN(sentTime)) return;
+      const blockedUntil = new Date(sentTime + 24 * 60 * 60 * 1000);
+      blocked[reminder.tenantId] = blockedUntil.toISOString();
+    });
+    return blocked;
   }, [reminders]);
 
   const refreshReminders = useCallback(async () => {
@@ -77,19 +58,6 @@ export function TenantsList() {
     const blockedUntil = remindersBlockedUntil[tenantId];
     if (!blockedUntil) return true;
     return new Date() > new Date(blockedUntil);
-  };
-
-  const blockReminderForTenant = (tenantId: string) => {
-    const now = new Date();
-    const blockedUntilTime = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours from now
-    const blockedUntilStr = blockedUntilTime.toISOString();
-    
-    const newBlocked = {
-      ...remindersBlockedUntil,
-      [tenantId]: blockedUntilStr,
-    };
-    setRemindersBlockedUntil(newBlocked);
-    localStorage.setItem("remindersBlockedUntil", JSON.stringify(newBlocked));
   };
 
   const getTimeUntilNextReminder = (tenantId: string): string => {
@@ -498,10 +466,6 @@ export function TenantsList() {
           setReminderTenant(null);
         }}
         onSuccess={async () => {
-          if (reminderTenant) {
-            const tenantId = reminderTenant.id || reminderTenant._id || "";
-            blockReminderForTenant(tenantId);
-          }
           await refreshReminders();
         }}
       />

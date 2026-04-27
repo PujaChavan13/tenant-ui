@@ -8,20 +8,23 @@ import {
   useCallback,
 } from "react";
 
-import { Reminder, ReminderFilters } from "@/lib/types/reminder";
+import { Reminder, ReminderFilters,TenantReminderStatus} from "@/lib/types/reminder";
 import {
   createReminder,
   getReminders,
   getRemindersByTenant,
+  getTenantReminderStatus
 } from "@/app/services/reminderService";
 
 type ReminderContextType = {
   reminders: Reminder[];
+  tenantStatus:TenantReminderStatus[];
   loading: boolean;
   error: string | null;
 
   fetchReminders: (filters?: ReminderFilters) => Promise<void>;
   fetchRemindersByTenant: (tenantId: string) => Promise<void>;
+ fetchTenantReminderStatus: () => Promise<void>;
   sendReminder: (data: {
     tenantId: string;
     tenantName: string;
@@ -40,8 +43,28 @@ export const ReminderProvider = ({ children }: { children: ReactNode }) => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
+  const [tenantStatus, setTenantStatus] = useState<TenantReminderStatus[]>([]);
   // ✅ Fetch all reminders
+const fetchTenantReminderStatus = useCallback(async () => {
+  try {
+    setLoading(true);
+    setError(null);
+
+    const data = await getTenantReminderStatus();
+    setTenantStatus(data);
+
+  } catch (err) {
+    const errorMsg =
+      err instanceof Error ? err.message : "Failed to fetch reminder status";
+
+    setError(errorMsg);
+    console.error("Fetch tenant reminder status error:", err);
+
+  } finally {
+    setLoading(false);
+  }
+}, []);
+
   const fetchReminders = useCallback(async (filters?: ReminderFilters) => {
     try {
       setLoading(true);
@@ -52,6 +75,7 @@ export const ReminderProvider = ({ children }: { children: ReactNode }) => {
     } catch (err) {
       const errorMsg =
         err instanceof Error ? err.message : "Failed to fetch reminders";
+
       setError(errorMsg);
       console.error("Fetch reminders error:", err);
     } finally {
@@ -80,41 +104,47 @@ export const ReminderProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   // ✅ Send (create) reminder
-  const sendReminder = useCallback(
-    async (data: {
-      tenantId: string;
-      tenantName: string;
-      contact: string;
-      amount: number;
-      months: number;
-      message: string;
-    }) => {
-      try {
-        setError(null);
+const sendReminder = useCallback(
+  async (data:{
+    tenantId: string;
+    tenantName: string;
+    contact: string;
+    amount: number;
+    months: number;
+    message: string;
+  }) => {
+    try {
+      setError(null);
 
-        const res = await createReminder(data);
-        const newReminder = res?.data ?? null;
+      const res = await createReminder(data);
+      const newReminder = res?.data ?? null;
 
-        if (newReminder) {
-          setReminders((prev) => [newReminder, ...prev]);
-        }
-
-        return newReminder;
-      } catch (err) {
-        const errorMsg =
-          err instanceof Error ? err.message : "Failed to send reminder";
-        setError(errorMsg);
-        console.error("Send reminder error:", err);
-        throw err;
+      if (newReminder) {
+        setReminders((prev) => [newReminder, ...prev]);
       }
-    },
-    []
-  );
 
+      // ✅ REFRESH STATUS
+      await fetchTenantReminderStatus();
+
+      return newReminder;
+
+    } catch (err) {
+      const errorMsg =
+        err instanceof Error ? err.message : "Failed to send reminder";
+
+      setError(errorMsg);
+      console.error("Send reminder error:", err);
+      throw err;
+    }
+  },
+  [fetchTenantReminderStatus]
+);
   const value: ReminderContextType = {
     reminders,
     loading,
     error,
+    tenantStatus,
+    fetchTenantReminderStatus,
     fetchReminders,
     fetchRemindersByTenant,
     sendReminder,
