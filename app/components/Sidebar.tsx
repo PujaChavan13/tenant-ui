@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import type { ReactNode } from "react";
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -12,11 +12,12 @@ import {
   LogOut,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/app/context/AuthContext";
 
 interface MenuItem {
   id: string;
   label: string;
-  icon: React.ReactNode;
+  icon: ReactNode;
   href: string;
 }
 
@@ -25,9 +26,11 @@ interface SidebarProps {
   onNavigation?: (itemId: string) => void;
 }
 
-export default function Sidebar({ activeItem: initialActiveItem = "dashboard", onNavigation }: SidebarProps) {
-  const [activeItem, setActiveItem] = useState(initialActiveItem);
-  const [collapsed, setCollapsed] = useState(false);
+export default function Sidebar({
+  activeItem = "dashboard",
+  onNavigation,
+}: SidebarProps) {
+  const { user, logout } = useAuth();
 
   const menuItems: MenuItem[] = [
     { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, href: "#" },
@@ -39,125 +42,89 @@ export default function Sidebar({ activeItem: initialActiveItem = "dashboard", o
   ];
 
   const handleNavigation = (itemId: string) => {
-    setActiveItem(itemId);
     onNavigation?.(itemId);
   };
 
+  const displayName = user?.name ?? "Admin";
+  const displayEmail = user?.email ?? "";
+  const initial = (displayName[0] ?? displayEmail[0] ?? "?").toUpperCase();
+
   return (
-    <div
-      className={cn(
-        "relative h-screen flex flex-col bg-gradient-to-b from-blue-900 to-blue-800 text-white transition-all duration-300 ease-in-out shadow-lg",
-        collapsed ? "w-20" : "w-64"
-      )}
-    >
-      {/* Header Section */}
-      <div className="border-b border-blue-700 p-6">
-        <div className="flex items-center justify-between gap-3">
-          {!collapsed && (
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="rounded-lg bg-blue-600 p-2.5 flex-shrink-0">
-                <LayoutDashboard size={24} className="text-white" />
-              </div>
-              <div className="min-w-0">
-                <h1 className="text-xl font-bold leading-tight truncate">Admin</h1>
-                <p className="text-xs text-blue-200 truncate">Dashboard</p>
-              </div>
-            </div>
-          )}
-          {!collapsed && (
-            <div className="flex-shrink-0">
-              <LayoutDashboard size={24} />
-            </div>
-          )}
+    <div className="relative flex h-screen w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground shadow-xl transition-colors md:w-64">
+      <div className="border-b border-sidebar-border p-6">
+        <div className="flex items-center gap-3">
+          <div className="flex shrink-0 rounded-xl bg-sidebar-primary p-2.5 text-sidebar-primary-foreground">
+            <LayoutDashboard size={24} aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <h1 className="truncate text-lg font-bold leading-tight">Rent Admin</h1>
+            <p className="truncate text-xs text-muted-foreground">Management</p>
+          </div>
         </div>
       </div>
 
-      {/* Navigation Menu */}
-      <nav className="flex-1 space-y-2 p-4 overflow-y-auto">
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
         {menuItems.map((item) => (
           <button
             key={item.id}
+            type="button"
             onClick={() => handleNavigation(item.id)}
             className={cn(
-              "group w-full flex items-center gap-3 px-4 py-3 rounded-lg font-medium transition-all duration-200 ease-in-out relative overflow-hidden justify-center md:justify-start",
+              "group relative flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-200",
               activeItem === item.id
-                ? "bg-blue-600 text-white shadow-md"
-                : "text-blue-100 hover:bg-blue-700/50 hover:text-white"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
             )}
-            title={collapsed ? item.label : ""}
           >
-            {/* Background animation for active item */}
-            {activeItem === item.id && (
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-blue-600 opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
-            )}
-
-            {/* Icon and Label Container */}
-            <div className="relative flex items-center gap-3 z-10 flex-1 justify-start">
+            {activeItem === item.id ? (
               <span
-                className={cn(
-                  "transition-transform duration-200 flex-shrink-0",
-                  activeItem === item.id ? "scale-110" : "group-hover:scale-105"
-                )}
-              >
-                {item.icon}
-              </span>
-
-              {!collapsed && (
-                <>
-                  <span className="flex-1 text-left truncate">{item.label}</span>
-                  {activeItem === item.id && (
-                    <ChevronRight size={18} className="transition-transform group-hover:translate-x-1 flex-shrink-0" />
-                  )}
-                </>
+                className="absolute inset-y-1 left-0 w-1 rounded-full bg-sidebar-primary"
+                aria-hidden
+              />
+            ) : null}
+            <span
+              className={cn(
+                "relative z-10 shrink-0 transition-transform duration-200",
+                activeItem === item.id ? "scale-110" : "group-hover:scale-105"
               )}
-            </div>
+            >
+              {item.icon}
+            </span>
+            <span className="relative z-10 flex-1 truncate">{item.label}</span>
+            {activeItem === item.id ? (
+              <ChevronRight
+                size={16}
+                className="relative z-10 shrink-0 opacity-70 transition-transform group-hover:translate-x-0.5"
+              />
+            ) : null}
           </button>
         ))}
       </nav>
 
-      {/* Divider */}
-      <div className="mx-4 border-t border-blue-700" />
+      <div className="mx-3 border-t border-sidebar-border" />
 
-      {/* Footer Section - User Info */}
-      <div className="border-t border-blue-700 p-4">
-        <div className="mb-4 flex items-center gap-3 p-2 md:px-4 md:py-3 rounded-lg bg-blue-700/30 transition-colors duration-200 justify-center md:justify-start">
-          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-            <Users size={20} />
+      <div className="space-y-2 p-3">
+        <div className="flex items-center gap-3 rounded-lg border border-sidebar-border bg-sidebar-accent/30 px-3 py-2.5">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-sidebar-primary/20 text-sm font-bold text-sidebar-primary">
+            {initial}
           </div>
-          {!collapsed && (
-            <div className="min-w-0 flex-1 hidden md:block">
-              <p className="truncate text-sm font-semibold">Admin User</p>
-              <p className="truncate text-xs text-blue-200">admin@company.com</p>
-            </div>
-          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-sidebar-foreground">
+              {displayName}
+            </p>
+            <p className="truncate text-xs text-muted-foreground">{displayEmail}</p>
+          </div>
         </div>
 
         <button
-          className={cn(
-            "group w-full flex items-center gap-3 px-4 py-2.5 rounded-lg font-medium text-blue-100 transition-all duration-200 ease-in-out hover:bg-red-600/20 hover:text-red-200 justify-center md:justify-start"
-          )}
-          title={collapsed ? "Logout" : ""}
+          type="button"
+          onClick={() => logout("manual")}
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
         >
-          <span className="transition-transform duration-200 group-hover:scale-110 flex-shrink-0">
-            <LogOut size={20} />
-          </span>
-          {!collapsed && <span className="hidden md:inline">Logout</span>}
+          <LogOut size={18} className="shrink-0" />
+          <span>Logout</span>
         </button>
       </div>
-
-      {/* Collapse Toggle Button - Hidden on mobile, visible on desktop */}
-      <button
-        onClick={() => setCollapsed(!collapsed)}
-        className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 rounded-full bg-blue-600 p-1.5 text-white shadow-lg transition-all duration-200 hover:bg-blue-500 hover:scale-110 z-50"
-      >
-        <ChevronRight
-          size={18}
-          className={cn(
-            "transition-transform duration-300",
-            collapsed ? "rotate-180" : ""
-          )}
-        />
-      </button>
     </div>
   );
 }
