@@ -3,10 +3,8 @@
 import type { ReactNode } from "react";
 import {
   LayoutDashboard,
-  ShoppingCart,
   Users,
   CreditCard,
-  Settings,
   Bell,
   ChevronRight,
   LogOut,
@@ -34,11 +32,9 @@ export default function Sidebar({
 
   const menuItems: MenuItem[] = [
     { id: "dashboard", label: "Dashboard", icon: <LayoutDashboard size={20} />, href: "#" },
-    { id: "shops", label: "Shops", icon: <ShoppingCart size={20} />, href: "#" },
     { id: "tenants", label: "Tenants", icon: <Users size={20} />, href: "#" },
     { id: "reminders", label: "Reminders", icon: <Bell size={20} />, href: "#" },
     { id: "payments", label: "Payments", icon: <CreditCard size={20} />, href: "#" },
-    { id: "settings", label: "Settings", icon: <Settings size={20} />, href: "#" },
   ];
 
   const handleNavigation = (itemId: string) => {
@@ -58,12 +54,12 @@ export default function Sidebar({
           </div>
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold leading-tight">Rent Admin</h1>
-            <p className="truncate text-xs text-muted-foreground">Management</p>
+            <p className="truncate text-xs text-sidebar-foreground/65">Management</p>
           </div>
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+      <nav className="sidebar-scroll flex-1 space-y-1 overflow-y-auto p-3">
         {menuItems.map((item) => (
           <button
             key={item.id}
@@ -73,7 +69,7 @@ export default function Sidebar({
               "group relative flex w-full items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-all duration-200",
               activeItem === item.id
                 ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
             )}
           >
             {activeItem === item.id ? (
@@ -112,14 +108,14 @@ export default function Sidebar({
             <p className="truncate text-sm font-semibold text-sidebar-foreground">
               {displayName}
             </p>
-            <p className="truncate text-xs text-muted-foreground">{displayEmail}</p>
+            <p className="truncate text-xs text-sidebar-foreground/65">{displayEmail}</p>
           </div>
         </div>
 
         <button
           type="button"
           onClick={() => logout("manual")}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground/75 transition-colors hover:bg-destructive/15 hover:text-destructive"
         >
           <LogOut size={18} className="shrink-0" />
           <span>Logout</span>

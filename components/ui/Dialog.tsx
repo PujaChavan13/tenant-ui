@@ -24,7 +24,7 @@ export function Dialog({
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-200"
+        className="fixed inset-0 z-40 bg-overlay backdrop-blur-sm transition-opacity duration-200"
         onClick={onClose}
       />
 
